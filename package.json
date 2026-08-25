@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "migrate": "node src/config/migrate.js",
-    "seed": "node src/config/seed.js"
+    "seed": "node src/config/seed.js",
+    "create-admin": "node src/config/createAdmin.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

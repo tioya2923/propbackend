@@ -1,0 +1,85 @@
+# Blueprint do Render — cria de uma vez os 3 recursos: backend, frontend e
+# base de dados. No dashboard do Render: "New" → "Blueprint" → aponta a este
+# repositório (propbackend). Os campos marcados "sync: false" são pedidos
+# uma única vez, no momento da criação do Blueprint.
+#
+# Nomes dos serviços (propbackend / propfrontend) determinam o URL público
+# gerado pelo Render: https://propbackend.onrender.com e
+# https://propfrontend.onrender.com. Se escolheres outros nomes no dashboard,
+# actualiza FRONTEND_URL e VITE_API_URL abaixo para corresponder.
+
+databases:
+  - name: prop-db
+    databaseName: prop_db
+    user: prop_user
+    plan: free
+
+services:
+  # ── Backend (API Node/Express) ───────────────────────────────────────────
+  - type: web
+    name: propbackend
+    runtime: node
+    repo: https://github.com/tioya2923/propbackend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: prop-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: BCRYPT_ROUNDS
+        value: "12"
+      # 32 bytes em hexadecimal (64 caracteres) — NÃO usar generateValue aqui,
+      # que gera base64, não hex; o arranque do servidor valida o formato e
+      # recusa-se a arrancar se estiver errado. Gerar com:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: FRONTEND_URL
+        value: https://propfrontend.onrender.com
+      - key: MAX_FILE_SIZE
+        value: "10485760"
+      - key: UPLOAD_DIR
+        value: uploads
+
+  # ── Frontend (site estático, build do Vite) ──────────────────────────────
+  - type: web
+    name: propfrontend
+    runtime: static
+    repo: https://github.com/tioya2923/propfrontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://propbackend.onrender.com/api
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
+    routes:
+      # SPA — todas as rotas do lado do cliente (React Router) devolvem o index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html

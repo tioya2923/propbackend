@@ -133,6 +133,12 @@ async function getEntregas(req, res) {
 
 async function avaliarEntrega(req, res) {
   try {
+    // Sem esta verificação, qualquer professor conseguia avaliar entregas
+    // de trabalhos criados por outro professor (getEntregas já fazia esta
+    // verificação, mas esta rota, que efectivamente atribui notas, não).
+    const t = await Trabalho.findOne({ where: { id: req.params.id, professor_id: req.user.id } });
+    if (!t) return res.status(404).json({ erro: 'Trabalho não encontrado' });
+
     const { seminarista_id, nota_valor, comentario } = req.body;
     const [entrega] = await EntregaTrabalho.findOrCreate({
       where: { trabalho_id: req.params.id, seminarista_id },

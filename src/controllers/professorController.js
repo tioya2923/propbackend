@@ -6,12 +6,12 @@ const upload = require('../middleware/upload');
 
 async function getHorarios(req, res) {
   try {
-    const where = {};
-    const comId = await Horario.count({ where: { professor_id: req.user.id } });
-    if (comId > 0) where.professor_id = req.user.id;
-
+    // Mostra sempre só as aulas atribuídas a este professor — a página
+    // chama-se "Os Meus Horários", por isso nunca deve devolver o horário
+    // de outros professores só porque este ainda não tem nenhuma aula
+    // ligada à sua conta (antes caía nesse caso e mostrava tudo).
     const horarios = await Horario.findAll({
-      where,
+      where: { professor_id: req.user.id },
       order: [['dia_semana', 'ASC'], ['hora_inicio', 'ASC']],
     });
     res.json(horarios);

@@ -5,6 +5,7 @@ const {
   listSeminaristas, getSeminarista, createSeminarista, updateSeminarista, deleteSeminarista,
   aplicarBolsa, configurarPropina, enviarComunicado, listComunicados, deleteComunicado,
   relatorioArrecadacao, relatorioDevedores, getPagamentos,
+  listPagamentosPendentes, confirmarPagamentoAdmin, rejeitarPagamentoAdmin,
   uploadMaterial, listMateriaisAdmin, deleteMaterialAdmin,
   listHorarios, createHorario, updateHorario, deleteHorario,
   listForumAdmin, pinForumPost, deleteForumPost,
@@ -27,7 +28,6 @@ router.post('/seminarista', authorize('admin'), createSeminarista);
 router.put('/seminarista/:id', updateSeminarista);
 router.delete('/seminarista/:id', authorize('admin'), deleteSeminarista);
 router.post('/seminarista/:id/bolsa', authorize('admin'), aplicarBolsa);
-router.post('/seminarista/:id/propina', configurarPropina);
 
 // ── Comunicados e Materiais ───────────────────────────────────────────────────
 router.get('/comunicados', listComunicados);
@@ -51,6 +51,11 @@ router.delete('/forum/:id', authorize('admin'), deleteForumPost);
 
 // ── Pagamentos e Relatórios ───────────────────────────────────────────────────
 router.get('/pagamentos', getPagamentos);
+router.get('/pagamentos/pendentes', listPagamentosPendentes);
+// Confirmar/rejeitar mexe directamente no saldo devedor do seminarista —
+// reservado ao administrador, tal como as outras acções financeiras aqui.
+router.post('/pagamentos/:id/confirmar', authorize('admin'), confirmarPagamentoAdmin);
+router.delete('/pagamentos/:id', authorize('admin'), rejeitarPagamentoAdmin);
 router.post('/propina/config', authorize('admin'), configurarPropina);
 router.get('/relatorios/arrecadacao', relatorioArrecadacao);
 router.get('/relatorios/devedores', relatorioDevedores);

@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { User, Propina, Payment, Comunicado, Material, Horario, ForumPost } = require('../models');
-const { sendComunicado } = require('../services/email');
+const { sendComunicado, sendPaymentConfirmation } = require('../services/email');
 const logger = require('../utils/logger');
 
 const CARGO_PERMISSOES = {
@@ -226,11 +226,33 @@ async function listHorarios(req, res) {
   }
 }
 
+// Duas aulas sobrepõem-se se uma começa antes da outra acabar e acaba
+// depois da outra começar (comparação directa de strings "HH:MM" funciona
+// porque o formato é sempre de largura fixa).
+function horariosSobrepoem(inicioA, fimA, inicioB, fimB) {
+  return inicioA < fimB && fimA > inicioB;
+}
+
+async function encontrarConflito({ ano_formacao, dia_semana, hora_inicio, hora_fim, professor_id, excluirId }) {
+  const where = { dia_semana, [Op.or]: [{ ano_formacao }, ...(professor_id ? [{ professor_id }] : [])] };
+  if (excluirId) where.id = { [Op.ne]: excluirId };
+  const candidatos = await Horario.findAll({ where });
+  return candidatos.find(h => horariosSobrepoem(hora_inicio, hora_fim, h.hora_inicio, h.hora_fim));
+}
+
 async function createHorario(req, res) {
   try {
     const { ano_formacao, dia_semana, hora_inicio, hora_fim, disciplina, professor, professor_id, sala } = req.body;
     if (!ano_formacao || !dia_semana || !hora_inicio || !hora_fim || !disciplina) {
       return res.status(400).json({ erro: 'Ano, dia, horas e disciplina são obrigatórios' });
+    }
+    if (hora_fim <= hora_inicio) {
+      return res.status(400).json({ erro: 'A hora de fim deve ser depois da hora de início' });
+    }
+    const conflito = await encontrarConflito({ ano_formacao, dia_semana, hora_inicio, hora_fim, professor_id });
+    if (conflito) {
+      const motivo = conflito.professor_id === professor_id && professor_id ? 'o professor já tem outra aula' : 'o ano já tem outra aula';
+      return res.status(409).json({ erro: `Conflito de horário: ${motivo} nesse dia e hora (${conflito.disciplina}, ${conflito.hora_inicio?.slice(0, 5)}–${conflito.hora_fim?.slice(0, 5)})` });
     }
     const horario = await Horario.create({
       ano_formacao, dia_semana, hora_inicio, hora_fim, disciplina,
@@ -247,6 +269,14 @@ async function updateHorario(req, res) {
     const horario = await Horario.findByPk(req.params.id);
     if (!horario) return res.status(404).json({ erro: 'Horário não encontrado' });
     const { ano_formacao, dia_semana, hora_inicio, hora_fim, disciplina, professor, professor_id, sala } = req.body;
+    if (hora_fim <= hora_inicio) {
+      return res.status(400).json({ erro: 'A hora de fim deve ser depois da hora de início' });
+    }
+    const conflito = await encontrarConflito({ ano_formacao, dia_semana, hora_inicio, hora_fim, professor_id, excluirId: horario.id });
+    if (conflito) {
+      const motivo = conflito.professor_id === professor_id && professor_id ? 'o professor já tem outra aula' : 'o ano já tem outra aula';
+      return res.status(409).json({ erro: `Conflito de horário: ${motivo} nesse dia e hora (${conflito.disciplina}, ${conflito.hora_inicio?.slice(0, 5)}–${conflito.hora_fim?.slice(0, 5)})` });
+    }
     await horario.update({
       ano_formacao, dia_semana, hora_inicio, hora_fim, disciplina,
       professor: professor || null, professor_id: professor_id || null, sala: sala || null,
@@ -323,9 +353,12 @@ async function deleteForumPost(req, res) {
 async function relatorioArrecadacao(req, res) {
   try {
     const { sequelize } = require('../models');
-    const query = `SELECT DATE_TRUNC('month', data_pagamento) AS mes, SUM(valor) AS total, COUNT(*) AS num_pagamentos
+    // Agrupado também por moeda — somar AOA com EUR/USD sem distinção
+    // produzia um total sem sentido assim que passámos a aceitar
+    // pagamentos em várias moedas via Stripe.
+    const query = `SELECT DATE_TRUNC('month', data_pagamento) AS mes, moeda, SUM(valor) AS total, COUNT(*) AS num_pagamentos
                    FROM payments WHERE confirmado = true
-                   GROUP BY mes ORDER BY mes DESC LIMIT 12`;
+                   GROUP BY mes, moeda ORDER BY mes DESC LIMIT 36`;
     const rows = await sequelize.query(query, { type: sequelize.QueryTypes.SELECT });
     res.json(rows);
   } catch (err) {
@@ -369,6 +402,59 @@ async function getPagamentos(req, res) {
   }
 }
 
+// Pagamentos por Multibanco/transferência ficam "por confirmar" até a
+// administração verificar o extracto bancário — sem isto não havia
+// nenhuma forma de fechar o ciclo desses pagamentos (o cartão confirma-se
+// sozinho junto do Stripe, mas o Multibanco é a via principal em AOA).
+async function listPagamentosPendentes(req, res) {
+  try {
+    const pagamentos = await Payment.findAll({
+      where: { confirmado: false },
+      include: [{ model: User, as: 'user', attributes: ['nome', 'email'] }],
+      order: [['created_at', 'DESC']],
+      limit: 200,
+    });
+    res.json(pagamentos);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+}
+
+async function confirmarPagamentoAdmin(req, res) {
+  try {
+    const payment = await Payment.findByPk(req.params.id);
+    if (!payment) return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    if (payment.confirmado) return res.json({ mensagem: 'Já confirmado', payment });
+
+    await payment.update({ confirmado: true, data_pagamento: payment.data_pagamento || new Date() });
+
+    const propina = await Propina.findByPk(payment.propina_id);
+    if (propina) {
+      const novo_saldo = Math.max(0, parseFloat(propina.saldo_devedor) - parseFloat(payment.valor));
+      await propina.update({ saldo_devedor: novo_saldo });
+    }
+
+    const user = await User.findByPk(payment.user_id);
+    if (user) await sendPaymentConfirmation(user, payment).catch(() => {});
+
+    res.json({ mensagem: 'Pagamento confirmado', payment });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+}
+
+async function rejeitarPagamentoAdmin(req, res) {
+  try {
+    const payment = await Payment.findByPk(req.params.id);
+    if (!payment) return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    if (payment.confirmado) return res.status(400).json({ erro: 'Não é possível rejeitar um pagamento já confirmado' });
+    await payment.destroy();
+    res.json({ mensagem: 'Pagamento rejeitado e removido' });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+}
+
 async function uploadMaterial(req, res) {
   try {
     if (!req.file) return res.status(400).json({ erro: 'Nenhum ficheiro enviado' });
@@ -399,6 +485,8 @@ async function getStats(req, res) {
       },
     });
 
+    const { sequelize } = require('../models');
+
     const [
       totalSeminaristas,
       totalProfessores,
@@ -407,8 +495,8 @@ async function getStats(req, res) {
       totalAdministradores,
       ano1Count,
       ano2Count,
-      totalPago,
-      totalDevedor,
+      totalPagoPorMoeda,
+      totalDevedorPorMoeda,
     ] = await Promise.all([
       countCargo('seminarista', 'seminarista'),
       countCargo('professor', null),
@@ -417,9 +505,26 @@ async function getStats(req, res) {
       countCargo('administrador', null),
       User.count({ where: { ativo: true, [Op.or]: [{ cargo: 'seminarista' }, { cargo: null, permissoes: 'seminarista' }], ano_formacao: 1 } }),
       User.count({ where: { ativo: true, [Op.or]: [{ cargo: 'seminarista' }, { cargo: null, permissoes: 'seminarista' }], ano_formacao: 2 } }),
-      Payment.sum('valor', { where: { confirmado: true } }),
-      Propina.sum('saldo_devedor'),
+      // Agrupado por moeda — AOA, EUR e USD não podem ser somados como se
+      // fossem o mesmo valor (bug real desde que o Stripe passou a aceitar
+      // pagamentos em EUR/USD além dos Multibanco em AOA).
+      Payment.findAll({
+        attributes: ['moeda', [sequelize.fn('SUM', sequelize.col('valor')), 'total']],
+        where: { confirmado: true },
+        group: ['moeda'],
+        raw: true,
+      }),
+      Propina.findAll({
+        attributes: ['moeda', [sequelize.fn('SUM', sequelize.col('saldo_devedor')), 'total']],
+        group: ['moeda'],
+        raw: true,
+      }),
     ]);
+
+    const porMoeda = rows => rows.reduce((acc, r) => {
+      acc[r.moeda] = parseFloat(r.total) || 0;
+      return acc;
+    }, { AOA: 0, EUR: 0, USD: 0 });
 
     res.json({
       total_seminaristas: totalSeminaristas,
@@ -429,8 +534,13 @@ async function getStats(req, res) {
       total_administradores: totalAdministradores,
       seminaristas_ano1: ano1Count,
       seminaristas_ano2: ano2Count,
-      total_pago: totalPago || 0,
-      total_devedor: totalDevedor || 0,
+      // Mantidos por compatibilidade (apenas o valor em AOA, a moeda
+      // principal do seminário) — usar total_pago_moeda/total_devedor_moeda
+      // para os totais correctos por moeda.
+      total_pago: porMoeda(totalPagoPorMoeda).AOA,
+      total_devedor: porMoeda(totalDevedorPorMoeda).AOA,
+      total_pago_moeda: porMoeda(totalPagoPorMoeda),
+      total_devedor_moeda: porMoeda(totalDevedorPorMoeda),
     });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -441,6 +551,7 @@ module.exports = {
   listSeminaristas, getSeminarista, createSeminarista, updateSeminarista, deleteSeminarista,
   aplicarBolsa, configurarPropina, enviarComunicado, listComunicados, deleteComunicado,
   relatorioArrecadacao, relatorioDevedores, getPagamentos,
+  listPagamentosPendentes, confirmarPagamentoAdmin, rejeitarPagamentoAdmin,
   uploadMaterial, listMateriaisAdmin, deleteMaterialAdmin,
   listHorarios, createHorario, updateHorario, deleteHorario,
   listForumAdmin, pinForumPost, deleteForumPost,

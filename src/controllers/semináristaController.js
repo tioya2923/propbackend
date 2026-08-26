@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { User, Propina, Payment, Horario, Material, Comunicado, ForumPost } = require('../models');
+const upload = require('../middleware/upload');
 
 async function getPerfil(req, res) {
   try {
@@ -25,7 +26,7 @@ async function updatePerfil(req, res) {
 async function uploadFoto(req, res) {
   try {
     if (!req.file) return res.status(400).json({ erro: 'Nenhum ficheiro enviado' });
-    const url = `/uploads/${req.file.filename}`;
+    const url = upload.getFileUrl(req.file);
     await req.user.update({ foto_url: url });
     res.json({ foto_url: url });
   } catch (err) {

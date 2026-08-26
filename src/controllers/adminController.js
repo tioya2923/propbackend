@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { User, Propina, Payment, Comunicado, Material, Horario, ForumPost } = require('../models');
 const { sendComunicado, sendPaymentConfirmation } = require('../services/email');
+const upload = require('../middleware/upload');
 const logger = require('../utils/logger');
 
 const CARGO_PERMISSOES = {
@@ -462,7 +463,7 @@ async function uploadMaterial(req, res) {
     const material = await Material.create({
       titulo, descricao, tipo: tipo || 'documento',
       ano_formacao: ano_formacao ? parseInt(ano_formacao) : null,
-      ficheiro_url: `/uploads/${req.file.filename}`,
+      ficheiro_url: upload.getFileUrl(req.file),
       enviado_por: req.user.id,
       tamanho_bytes: req.file.size,
     });

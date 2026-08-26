@@ -69,6 +69,15 @@ services:
         value: "10485760"
       - key: UPLOAD_DIR
         value: uploads
+      # Sem isto, uploads (imagens de notícias, fotos, materiais) caem no
+      # disco local do Render, que é apagado a cada deploy. Criar conta
+      # gratuita em cloudinary.com e copiar do dashboard.
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
   # ── Frontend (site estático, build do Vite) ──────────────────────────────
   - type: web

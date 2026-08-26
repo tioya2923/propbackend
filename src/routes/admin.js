@@ -68,7 +68,7 @@ router.post('/upload/imagem', (req, res, next) => {
       return res.status(status).json({ erro: err.message || 'Erro ao processar imagem' });
     }
     if (!req.file) return res.status(400).json({ erro: 'Nenhuma imagem enviada' });
-    res.json({ url: `/uploads/${req.file.filename}` });
+    res.json({ url: upload.getFileUrl(req.file) });
   });
 });
 

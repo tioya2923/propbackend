@@ -53,7 +53,7 @@ async function seed() {
       email: `sem${i + 1}@sje.ao`,
       password_hash: 'Seminarista@1234',
       permissoes: 'seminarista',
-      ano_formacao: (i % 2) + 1,
+      ano_formacao: (i % 3) + 1,
       data_entrada: new Date(2024, 8, 1),
       ativo: true,
     });
@@ -96,14 +96,15 @@ async function seed() {
   await Event.create({ titulo: 'Dia de Portas Abertas', descricao: 'Visita ao Seminário para jovens interessados na vida sacerdotal', data_inicio: new Date(2026, 4, 3), tipo: 'comunitario', publico: true, criado_por: admin.id });
   console.log('Eventos criados');
 
-  // ── Horários (anos 1–2) ──────────────────────────────────────────────────
+  // ── Horários (anos 1–3) ──────────────────────────────────────────────────
   const disciplinas = [
     'Introdução à Teologia', 'Latim', 'Grego',
     'História da Igreja', 'Filosofia Introdutória', 'Literatura e Comunicação',
     'Canto Gregoriano', 'Espiritualidade', 'Bíblia — Iniciação',
   ];
   const dias = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
-  for (let ano = 1; ano <= 2; ano++) {
+  const salaLetra = { 1: 'A', 2: 'B', 3: 'C' };
+  for (let ano = 1; ano <= 3; ano++) {
     for (let i = 0; i < 5; i++) {
       await Horario.create({
         ano_formacao: ano,
@@ -112,7 +113,7 @@ async function seed() {
         hora_fim: `0${9 + (i % 3)}:30`,
         disciplina: disciplinas[(ano - 1) * 4 + (i % disciplinas.length)],
         professor: 'Pe. ' + ['João Mendes', 'Manuel Silva', 'António Ferreira', 'Pedro Alves', 'Carlos Neto'][i],
-        sala: `Sala ${ano === 1 ? 'A' : 'B'}${i + 1}`,
+        sala: `Sala ${salaLetra[ano]}${i + 1}`,
       });
     }
   }
@@ -171,9 +172,9 @@ async function seed() {
     { pagina: 'seminario', chave: 'reitor_nome',      valor: 'Pe. Director', tipo: 'text' },
     { pagina: 'seminario', chave: 'reitor_cargo',     valor: 'Director do Seminário Propedêutico', tipo: 'text' },
     { pagina: 'seminario', chave: 'reitor_citacao',   valor: '"O ano propedêutico é o tempo do discernimento e da decisão. Aqui o jovem aprende a escutar a voz de Deus e a responder com toda a sua vida."', tipo: 'text' },
-    { pagina: 'seminario', chave: 'reitor_descricao', valor: 'O Seminário Propedêutico São João Evangelista é a porta de entrada na vida seminarística. Durante um ou dois anos, os candidatos ao sacerdócio recebem uma formação humana, espiritual, intelectual e pastoral que os prepara para os estudos filosóficos e teológicos.', tipo: 'text' },
+    { pagina: 'seminario', chave: 'reitor_descricao', valor: 'O Seminário Propedêutico São João Evangelista é a porta de entrada na vida seminarística. Durante os três anos propedêuticos, os candidatos ao sacerdócio recebem uma formação humana, espiritual, intelectual e pastoral que os prepara para os estudos filosóficos e teológicos.', tipo: 'text' },
     { pagina: 'seminario', chave: 'disciplinas',      valor: JSON.stringify(['Introdução à Teologia', 'Latim', 'Grego', 'História da Igreja', 'Filosofia Introdutória', 'Literatura e Comunicação', 'Canto Gregoriano', 'Espiritualidade', 'Bíblia — Iniciação']), tipo: 'json' },
-    { pagina: 'seminario', chave: 'stats',            valor: JSON.stringify([{ valor: '8', desc: 'Seminaristas' }, { valor: '2', desc: 'Anos de formação' }, { valor: '3', desc: 'Formadores' }]), tipo: 'json' },
+    { pagina: 'seminario', chave: 'stats',            valor: JSON.stringify([{ valor: '8', desc: 'Seminaristas' }, { valor: '3', desc: 'Anos de formação' }, { valor: '3', desc: 'Formadores' }]), tipo: 'json' },
     { pagina: 'seminario', chave: 'historia',         valor: JSON.stringify([
       { ano: '2010', titulo: 'Fundação', desc: 'O Seminário Propedêutico São João Evangelista é fundado pela Arquidiocese do Huambo para acolher os primeiros candidatos ao sacerdócio.' },
       { ano: '2015', titulo: 'Crescimento', desc: 'Abertura de novas instalações e consolidação do programa de formação propedêutica.' },
@@ -198,7 +199,7 @@ async function seed() {
       { nome: 'Pe. João Paulo Dias', ano: 'Ordenado em 2023', texto: '"São João Evangelista foi para mim uma escola de humanidade e de fé. Recomendo a qualquer jovem que sinta o chamamento."' },
     ]), tipo: 'json' },
     { pagina: 'vocacao', chave: 'faqs', valor: JSON.stringify([
-      { q: 'O que é o ano propedêutico?', a: 'É um período de preparação e discernimento que antecede os estudos filosóficos e teológicos no seminário maior. Dura um ou dois anos conforme a maturidade do candidato.' },
+      { q: 'O que é o ano propedêutico?', a: 'É um período de preparação e discernimento que antecede os estudos filosóficos e teológicos no seminário maior. Dura três anos.' },
       { q: 'Que requisitos são necessários?', a: 'Ser do sexo masculino, católico praticante, ter concluído o ensino secundário, boa saúde física e psicológica, e carta de recomendação do pároco.' },
       { q: 'O que se aprende no propedêutico?', a: 'Introdução à Teologia, Latim, Grego, História da Igreja, Filosofia Introdutória, Espiritualidade e formação humana e pastoral.' },
       { q: 'Posso visitar o Seminário?', a: 'Sim! Organizamos dias abertos e fins-de-semana vocacionais. Entre em contacto para agendar uma visita.' },

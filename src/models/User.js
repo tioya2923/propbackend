@@ -9,7 +9,7 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING(150), allowNull: false, unique: true, validate: { isEmail: true } },
   password_hash: { type: DataTypes.STRING, allowNull: false },
   nif_encrypted: { type: DataTypes.TEXT },
-  ano_formacao: { type: DataTypes.INTEGER, validate: { min: 1, max: 2 } },
+  ano_formacao: { type: DataTypes.INTEGER, validate: { min: 1, max: 3 } },
   data_entrada: { type: DataTypes.DATEONLY },
   foto_url: { type: DataTypes.STRING },
   permissoes: {

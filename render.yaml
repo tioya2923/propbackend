@@ -3,10 +3,14 @@
 # repositório (propbackend). Os campos marcados "sync: false" são pedidos
 # uma única vez, no momento da criação do Blueprint.
 #
-# Nomes dos serviços (propbackend / propfrontend) determinam o URL público
-# gerado pelo Render: https://propbackend.onrender.com e
-# https://propfrontend.onrender.com. Se escolheres outros nomes no dashboard,
-# actualiza FRONTEND_URL e VITE_API_URL abaixo para corresponder.
+# Os nomes de serviço abaixo só definem o URL público (https://<nome>.onrender.com)
+# se esse nome ainda estiver livre — o "onrender.com" é partilhado por todas as
+# contas do Render, por isso o Render pode acrescentar um sufixo aleatório se já
+# estiver ocupado por outra conta (ex.: propbackend-cjfu.onrender.com). Confirma
+# sempre o URL real de cada serviço no dashboard e actualiza FRONTEND_URL /
+# VITE_API_URL abaixo para corresponder — atualmente:
+#   backend:  https://propbackend-cjfu.onrender.com
+#   frontend: https://propfrontend.onrender.com
 
 databases:
   - name: prop-db
@@ -75,7 +79,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://propbackend.onrender.com/api
+        value: https://propbackend-cjfu.onrender.com/api
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false
     routes:

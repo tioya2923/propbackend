@@ -122,11 +122,21 @@ async function aplicarBolsa(req, res) {
 async function configurarPropina(req, res) {
   try {
     const { user_id, montante_mensal, moeda, data_vencimento } = req.body;
+    if (!user_id) return res.status(400).json({ erro: 'Seminarista obrigatório' });
+
     const [propina] = await Propina.findOrCreate({
       where: { user_id },
-      defaults: { montante_mensal: montante_mensal || 45000, moeda: moeda || 'AOA', data_vencimento, saldo_devedor: 0 },
+      // Uma data vazia ("") vinda do formulário não é uma data válida para o
+      // Postgres — tem de ser null para o campo (opcional) ficar por preencher.
+      defaults: { montante_mensal: montante_mensal || 45000, moeda: moeda || 'AOA', data_vencimento: data_vencimento || null, saldo_devedor: 0 },
     });
-    if (montante_mensal) await propina.update({ montante_mensal, moeda, data_vencimento });
+    if (montante_mensal) {
+      const updates = { montante_mensal, moeda };
+      // Só altera a data se foi mesmo indicada — em branco não deve apagar uma
+      // data de vencimento que já existisse.
+      if (data_vencimento) updates.data_vencimento = data_vencimento;
+      await propina.update(updates);
+    }
     res.json(propina);
   } catch (err) {
     res.status(500).json({ erro: err.message });

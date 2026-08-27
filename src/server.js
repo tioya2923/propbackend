@@ -25,6 +25,13 @@ const publicRoutes = require('./routes/public');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// O Render (e qualquer PaaS equivalente) fica atrás de um proxy reverso e
+// define X-Forwarded-For — sem isto o express-rate-limit rejeita o pedido
+// com ERR_ERL_UNEXPECTED_X_FORWARDED_FOR em vez de aplicar o limite por IP
+// real do visitante. "1" confia apenas no primeiro proxy à frente (o do
+// Render), não em qualquer IP que o cliente diga ser o "real".
+app.set('trust proxy', 1);
+
 // Ensure logs/uploads directories exist
 ['logs', process.env.UPLOAD_DIR || 'uploads'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { User, Propina, Payment, Horario, Material, Comunicado, ForumPost } = require('../models');
+const { User, Propina, Payment, Horario, Material, Comunicado, ForumPost, Nota } = require('../models');
 const upload = require('../middleware/upload');
 
 async function getPerfil(req, res) {
@@ -108,6 +108,19 @@ async function getForumPosts(req, res) {
   }
 }
 
+async function getMinhasNotas(req, res) {
+  try {
+    const notas = await Nota.findAll({
+      where: { seminarista_id: req.user.id },
+      include: [{ model: User, as: 'professor', attributes: ['nome'] }],
+      order: [['periodo', 'DESC'], ['materia', 'ASC']],
+    });
+    res.json(notas);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+}
+
 async function createForumPost(req, res) {
   try {
     const { titulo, conteudo, categoria, parent_id } = req.body;
@@ -133,4 +146,4 @@ async function createForumPost(req, res) {
   }
 }
 
-module.exports = { getPerfil, updatePerfil, uploadFoto, getHorarios, getMateriais, getComunicados, getForumPosts, createForumPost };
+module.exports = { getPerfil, updatePerfil, uploadFoto, getHorarios, getMateriais, getComunicados, getMinhasNotas, getForumPosts, createForumPost };

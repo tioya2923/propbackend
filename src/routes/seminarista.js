@@ -4,6 +4,7 @@ const upload = require('../middleware/upload');
 const {
   getPerfil, updatePerfil, uploadFoto,
   getHorarios, getMateriais, getComunicados,
+  getMinhasNotas,
   getForumPosts, createForumPost,
 } = require('../controllers/semináristaController');
 
@@ -15,6 +16,7 @@ router.post('/foto', upload.single('foto'), uploadFoto);
 router.get('/horarios', getHorarios);
 router.get('/materiais', getMateriais);
 router.get('/comunicados', getComunicados);
+router.get('/notas', getMinhasNotas);
 router.get('/forum', getForumPosts);
 router.post('/forum', createForumPost);
 

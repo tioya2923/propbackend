@@ -3,6 +3,7 @@ const { Propina, Payment, User } = require('../models');
 const { createPaymentIntent, retrievePaymentIntent } = require('../services/stripe');
 const { generateRecibo } = require('../services/pdf');
 const { sendPaymentConfirmation } = require('../services/email');
+const { calcularMensalidadesEmAtraso } = require('../services/faturacao');
 const logger = require('../utils/logger');
 
 function stripeConfigurado() {
@@ -27,6 +28,11 @@ async function getMinhaDivida(req, res) {
     if (!propina) {
       return res.status(404).json({ erro: 'Propina não configurada. Contacte a administração.' });
     }
+
+    // Lança já qualquer mensalidade em atraso antes de responder — assim o
+    // seminarista vê sempre o saldo actualizado mesmo que o servidor tenha
+    // estado hibernado (Render free tier) na data de vencimento.
+    if (calcularMensalidadesEmAtraso(propina)) await propina.save();
 
     const desconto = propina.bolsa ? propina.desconto_percentagem : 0;
     const montante_efectivo = propina.montante_mensal * (1 - desconto / 100);

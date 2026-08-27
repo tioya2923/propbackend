@@ -138,6 +138,10 @@ async function configurarPropina(req, res) {
       if (data_vencimento) updates.data_vencimento = data_vencimento;
       await propina.update(updates);
     }
+    // Caso a data de vencimento indicada já tenha passado, lança logo a
+    // mensalidade correspondente em vez de esperar pelo próximo ciclo.
+    const { calcularMensalidadesEmAtraso } = require('../services/faturacao');
+    if (calcularMensalidadesEmAtraso(propina)) await propina.save();
     res.json(propina);
   } catch (err) {
     res.status(500).json({ erro: err.message });

@@ -109,6 +109,20 @@ async function start() {
     await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
     logger.info('Database synced');
     app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));
+
+    // Lança já as mensalidades em atraso ao arrancar — cobre o tempo em que
+    // o servidor esteve parado (ex.: plano free do Render, que hiberna sem
+    // tráfego) e por isso o agendamento diário abaixo não correu.
+    const { aplicarMensalidadesEmAtraso } = require('./services/faturacao');
+    aplicarMensalidadesEmAtraso().catch(err => logger.error('Erro ao lançar mensalidades no arranque', { err: err.message }));
+
+    // Confirma diariamente, às 03:00, que nenhuma propina ficou por
+    // actualizar — rede de segurança para quando o servidor fica ligado
+    // dias seguidos sem reiniciar.
+    const cron = require('node-cron');
+    cron.schedule('0 3 * * *', () => {
+      aplicarMensalidadesEmAtraso().catch(err => logger.error('Erro ao lançar mensalidades (cron diário)', { err: err.message }));
+    });
   } catch (err) {
     logger.error('Failed to start server', { err: err.message });
     process.exit(1);

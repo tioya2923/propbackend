@@ -91,7 +91,10 @@ async function iniciarPagamento(req, res) {
       return res.json({ client_secret: intent.client_secret, payment_id: payment.id });
     }
 
-    const ref = `MB${Date.now()}`;
+    // Só um código de referência interno para a administração cruzar com o
+    // extracto bancário — não está ligado a nenhuma rede de pagamentos real
+    // (não confundir com uma referência Multicaixa/EMIS de verdade).
+    const ref = `REF-${Date.now().toString().slice(-8)}`;
     const payment = await Payment.create({
       user_id: req.user.id,
       propina_id: propina.id,

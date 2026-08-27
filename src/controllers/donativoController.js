@@ -1,8 +1,11 @@
 const { sendEmail } = require('../services/email');
 
+// Só um código interno para a administração cruzar o email de notificação
+// com o extracto bancário — não está ligado a nenhuma rede de pagamentos
+// real (não confundir com uma referência Multicaixa/EMIS de verdade).
 function gerarReferencia() {
-  const ts = Date.now().toString().slice(-6);
-  return `SMRH-${ts}`;
+  const ts = Date.now().toString().slice(-8);
+  return `REF-${ts}`;
 }
 
 async function mcxIntent(req, res) {
